@@ -21,6 +21,7 @@ void error(char *msg) {
 void *worker_function(void *arg) {
   int my_sockfd = *((int *) arg);
   int n;
+  char send_buffer[8000] = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
 
   // ...thread processing...
   char  worker_buffer[256];
@@ -41,9 +42,11 @@ void *worker_function(void *arg) {
       pthread_exit(NULL);
       break;
     }
+    strcat(send_buffer, "Hello World ");
+
 
     /* send reply to client */
-    n = write(my_sockfd, "I got your message", 18);
+    n = write(my_sockfd, send_buffer, 18);
     if (n < 0)
       error("ERROR writing to socket\n");
       
@@ -104,6 +107,8 @@ int main(int argc, char *argv[]) {
     newsockfd[thread_count] = accept(sockfd, (struct sockaddr *)&cli_addr[thread_count], &clilen);
     if (newsockfd[thread_count] < 0)
       printf("ERROR on accept\n");
+
+     printf("new socket created \n"); 
 
     // Spawn a new thread for each connection
 
