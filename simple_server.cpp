@@ -24,34 +24,37 @@ void *worker_function(void *arg) {
   char send_buffer[8000] = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
 
   // ...thread processing...
-  char  worker_buffer[256];
+  char  worker_buffer[30000];
   printf("In thread: %d \n",my_sockfd );
 
   while(1){
     
-    bzero(worker_buffer, 256);
-    n = read(my_sockfd, worker_buffer, 255); 
+    bzero(worker_buffer, 30000);
+    n = read(my_sockfd, worker_buffer, 30000); 
     if (n < 0)
       error("ERROR reading from socket\n");
     printf("Here is the message: %s", worker_buffer);
 
     //Handle Client closed connection
-    if(n == 0){
-      error("Client closed connection\n");  
-      close(my_sockfd);
-      pthread_exit(NULL);
-      break;
-    }
+    // if(n == 0){
+    //   error("Client closed connection\n");  
+    //   close(my_sockfd);
+    //   pthread_exit(NULL);
+    //   break;
+    // }
     strcat(send_buffer, "Hello World ");
 
 
     /* send reply to client */
-    n = write(my_sockfd, send_buffer, 18);
+    n = write(my_sockfd, send_buffer, 256);
     if (n < 0)
       error("ERROR writing to socket\n");
+
+    close(my_sockfd); 
+    break;
       
   }
-
+return 0;
 
 }
 
