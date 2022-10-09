@@ -21,39 +21,41 @@ void error(char *msg) {
 void *worker_function(void *arg) {
   int my_sockfd = *((int *) arg);
   int n;
-  char send_buffer[8000] = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
-
+  string send_buffer;
+  //char c_send_buffer[8000] = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
+  HTTP_Response *response;
   // ...thread processing...
-  char  worker_buffer[30000];
+  char  receive_buffer[30000];
   printf("In thread: %d \n",my_sockfd );
 
-  while(1){
+ //while(1){
     
-    bzero(worker_buffer, 30000);
-    n = read(my_sockfd, worker_buffer, 30000); 
+    bzero(receive_buffer, 30000);
+    n = read(my_sockfd, receive_buffer, 30000); 
+
     if (n < 0)
       error("ERROR reading from socket\n");
-    printf("Here is the message: %s", worker_buffer);
+    //printf("Here is the message: %s", receive_buffer);
 
-    //Handle Client closed connection
-    // if(n == 0){
-    //   error("Client closed connection\n");  
-    //   close(my_sockfd);
-    //   pthread_exit(NULL);
-    //   break;
-    // }
-    strcat(send_buffer, "Hello World ");
+    
+    //Process Received Buffer
+
+    response = handle_request(receive_buffer);
+    send_buffer = response->get_string();
+
+    //strcat(send_buffer, "Hello World ");
 
 
     /* send reply to client */
-    n = write(my_sockfd, send_buffer, 256);
+    n = write(my_sockfd, send_buffer.c_str(), 256);
     if (n < 0)
       error("ERROR writing to socket\n");
 
     close(my_sockfd); 
-    break;
+    pthread_exit(NULL);
+    //break;
       
-  }
+ // }
 return 0;
 
 }
