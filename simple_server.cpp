@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 
 #include <pthread.h>
+#include <queue>
 #include "http_server.hh"
 
 #define TOTAL_THREADS 100
@@ -19,49 +20,53 @@ void error(char *msg) {
 
 //Function called for execution by worker threads
 void *worker_function(void *arg) {
+  
   int my_sockfd = *((int *) arg);
-  int n;
-  string send_buffer;
-  //char c_send_buffer[8000] = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
+  int status;
+  string response_buffer;
+  char send_buffer[8000];
+  // = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
   HTTP_Response *response;
+
   // ...thread processing...
   char  receive_buffer[30000];
+
   printf("In thread: %d \n",my_sockfd );
 
- //while(1){
-    
-    bzero(receive_buffer, 30000);
-    n = read(my_sockfd, receive_buffer, 30000); 
+  bzero(receive_buffer, 30000);
+  status = read(my_sockfd, receive_buffer, 30000); 
 
-    if (n < 0)
-      error("ERROR reading from socket\n");
-    //printf("Here is the message: %s", receive_buffer);
+  if (status < 0)
+    error("ERROR reading from socket\n");
+  //printf("Here is the message: %s", receive_buffer);
 
-    
-    //Process Received Buffer
+  
+  //Process Received Buffer
 
-    response = handle_request(receive_buffer);
-    send_buffer = response->get_string();
+  response = handle_request(receive_buffer);
+  response_buffer = response->get_string();
 
-    //strcat(send_buffer, "Hello World ");
+  //strcat(send_buffer, "Hello World ");
+  cout<<"SendBuffer C String:  " <<endl << response_buffer.c_str();
+  strcat(send_buffer,response_buffer.c_str());
 
+  /* send reply to client */
+  status = write(my_sockfd, send_buffer, 8000);
+  if (status < 0)
+    error("ERROR writing to socket\n");
 
-    /* send reply to client */
-    n = write(my_sockfd, send_buffer.c_str(), 256);
-    if (n < 0)
-      error("ERROR writing to socket\n");
+  close(my_sockfd); 
+  cout << "Closed Socket" << endl;
+  pthread_exit(NULL);
 
-    close(my_sockfd); 
-    pthread_exit(NULL);
-    //break;
-      
- // }
 return 0;
 
 }
 
 int main(int argc, char *argv[]) {
-  int sockfd, newsockfd[TOTAL_THREADS], portno;
+  int sockfd,portno;
+  queue<int> threadsockfd;
+  int newsockfd;
   socklen_t clilen;
   char buffer[256];
   struct sockaddr_in serv_addr, cli_addr[TOTAL_THREADS];
@@ -109,15 +114,16 @@ int main(int argc, char *argv[]) {
     /* accept a new request, create a newsockfd */
     printf("Current Thread Count is : %d\n", thread_count);
 
-    newsockfd[thread_count] = accept(sockfd, (struct sockaddr *)&cli_addr[thread_count], &clilen);
-    if (newsockfd[thread_count] < 0)
+    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr[thread_count], &clilen);
+    if (newsockfd < 0)
       printf("ERROR on accept\n");
 
-     printf("new socket created \n"); 
+    threadsockfd.push(newsockfd);
+    printf("new socket created \n"); 
 
     // Spawn a new thread for each connection
 
-    pthread_create(&thread_id[thread_count], NULL, worker_function, &newsockfd[thread_count]);
+    pthread_create(&thread_id[thread_count], NULL, worker_function, &newsockfd);
     
     printf("New Thread Created\n");
     thread_count++;

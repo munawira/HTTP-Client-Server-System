@@ -54,8 +54,7 @@ HTTP_Response *handle_request(string req) {
 
   HTTP_Response *response = new HTTP_Response();
   std::ifstream inFile;
-
-
+  
   string url = string("html_files") + request->url;
 
   response->HTTP_version = "1.0";
@@ -89,22 +88,28 @@ HTTP_Response *handle_request(string req) {
 
     std::stringstream strStream;
     strStream << inFile.rdbuf(); //read the file
+   
+  
+    /*
+    TODO : set the remaining fields of response appropriately
+    */
     response->body = strStream.str(); //str holds the content of the file
     std::cout<< "ARE WE HERE" <<endl;
     std::cout << response->body << "\n"; //you can do anything with the string!!!
 
-
-
-    /*
-    TODO : set the remaining fields of response appropriately
-    */
   }
   else {
+    string url_404 = string("404.html");
     response->status_code = "404";
+    inFile.open(url_404);
 
-    /*
-    TODO : set the remaining fields of response appropriately
-    */
+    std::stringstream strStream;
+    strStream << inFile.rdbuf();
+    
+    response->body = strStream.str();
+    std::cout<< "ARE WE in 404" <<endl;
+    std::cout << response->body << "\n"; 
+
   }
 
   delete request;

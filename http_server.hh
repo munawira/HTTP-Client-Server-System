@@ -20,9 +20,11 @@ struct HTTP_Response {
 
   string status_code; // ex: 200, 404, etc.
   string status_text; // ex: OK, Not Found, etc.
-
+  string response_date;
+  
   string content_type;
   string content_length;
+
 
   string body;
 
