@@ -8,10 +8,39 @@
 #include <netinet/in.h>
 
 #include <pthread.h>
-#include <queue>
 #include "http_server.hh"
 
 #define TOTAL_THREADS 100
+
+//NEED TO CHECK BELOW
+int get_sockfd = 1;
+pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t c = PTHREAD_COND_INITIALIZER;
+
+void thr_exit() {
+  pthread_mutex_lock(&m);
+  get_sockfd = 1;
+  pthread_mutex_unlock(&m);
+}
+
+void *child(void *arg) {
+ printf("child\n");
+ thr_exit();
+ return NULL;
+}
+
+void wait_newsocket() {
+ pthread_mutex_lock(&m);
+
+ while (get_sockfd == 0)
+  pthread_cond_wait(&c, &m);
+
+ pthread_mutex_unlock(&m);
+
+}
+//////NEED TO CHECK ABOVE
+//Shared queue of Socket File Descriptor
+queue<int> threadsockfd;
 
 void error(char *msg) {
   perror(msg);
@@ -21,8 +50,10 @@ void error(char *msg) {
 //Function called for execution by worker threads
 void *worker_function(void *arg) {
   
+  /*
   int my_sockfd = *((int *) arg);
-  int status;
+  */
+  int my_sockfd,status; //Collect my_sockfd from the queue
   string response_buffer;
   char send_buffer[8000];
   // = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
@@ -57,7 +88,7 @@ void *worker_function(void *arg) {
 
   close(my_sockfd); 
   cout << "Closed Socket" << endl;
-  pthread_exit(NULL);
+  //pthread_exit(NULL);
 
 return 0;
 
@@ -65,7 +96,7 @@ return 0;
 
 int main(int argc, char *argv[]) {
   int sockfd,portno;
-  queue<int> threadsockfd;
+  
   int newsockfd;
   socklen_t clilen;
   char buffer[256];

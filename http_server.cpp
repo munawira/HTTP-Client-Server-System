@@ -28,19 +28,13 @@ HTTP_Request::HTTP_Request(string request) {
   vector<string> first_line = split(lines[0], ' ');
 
   this->HTTP_version = "1.0"; // We'll be using 1.0 irrespective of the request
+    
     /*
    TODO : extract the request method and URL from first_line here
   */
   
   this->method = first_line[0];
   this->url = first_line[1];
-
-
-//  cout<< "HERE NOW"<<endl;
-//      for (vector<string>::iterator t=lines.begin(); t!=lines.end(); ++t) {
-//         cout<<*t<<endl;
-//     }
-
 
 
   if (this->method != "GET") {
@@ -53,18 +47,22 @@ HTTP_Response *handle_request(string req) {
   HTTP_Request *request = new HTTP_Request(req);
 
   HTTP_Response *response = new HTTP_Response();
-  std::ifstream inFile;
-  
-  string url = string("html_files") + request->url;
-
   response->HTTP_version = "1.0";
 
+  std::ifstream inFile;
+  char filesize[10];
+  string url = string("html_files") + request->url;
+
+
   struct stat sb;
+  struct stat sbfile;
   if (stat(url.c_str(), &sb) == 0) // requested path exists
   {
     response->status_code = "200";
     response->status_text = "OK";
     response->content_type = "text/html";
+
+
 
     string body;
 
@@ -74,29 +72,49 @@ HTTP_Response *handle_request(string req) {
       TODO : find the index.html file in that directory (modify the url
       accordingly)
       */
-     if((stat ("index.html", &sb) == 0)){
-      url = url + "index.html";
-     }
 
+     url = url + "index.html";
+
+  
     }
 
-    /*
-    TODO : open the file and read its contents
-    */
-        
-    inFile.open(url); //open the input file
+    //TODO: Check with ashwin about parsing empty directory without html files
 
-    std::stringstream strStream;
-    strStream << inFile.rdbuf(); //read the file
-   
-  
-    /*
-    TODO : set the remaining fields of response appropriately
-    */
-    response->body = strStream.str(); //str holds the content of the file
-    std::cout<< "ARE WE HERE" <<endl;
-    std::cout << response->body << "\n"; //you can do anything with the string!!!
+    sprintf(filesize, "%jd", sb.st_size);
+    response->content_length = filesize;
+    response->content_type = "text/html";
 
+    if((stat (url.c_str(), &sbfile) != 0)){
+      string url_404 = string("404.html");
+      response->status_code = "404";
+      inFile.open(url_404);
+
+      std::stringstream strStream;
+      strStream << inFile.rdbuf();
+      
+      response->body = strStream.str();
+      std::cout<< "We are in 404 for directory" <<endl;
+      std::cout << response->body << "\n"; 
+
+    } else {
+      /*
+      TODO : open the file and read its contents
+      */    
+      inFile.open(url); //open the input file
+
+      std::stringstream strStream;
+      strStream << inFile.rdbuf(); //read the file
+    
+    
+      /*
+      TODO : set the remaining fields of response appropriately
+      */
+      response->body = strStream.str(); //str holds the content of the file
+      std::cout<< "Response for File Found:" <<endl;
+      std::cout << response->body << "\n"; //you can do anything with the string!!!
+
+    }
+    
   }
   else {
     string url_404 = string("404.html");
@@ -107,7 +125,7 @@ HTTP_Response *handle_request(string req) {
     strStream << inFile.rdbuf();
     
     response->body = strStream.str();
-    std::cout<< "ARE WE in 404" <<endl;
+    std::cout<< "Response for URL not found" <<endl;
     std::cout << response->body << "\n"; 
 
   }
@@ -121,16 +139,13 @@ string HTTP_Response::get_string() {
   /*
   TODO : implement this function
   */
-// HTTP/1.0 200 OK
-// Date: Fri, 31 Dec 1999 23:59:59 GMT
-// Content-Type: text/html
-// Content-Length: 1354
 
-this->content_type = "text/html";
-this->content_length = "30000"; //this->body.size();
+
+//Content length initialized earlier;
+//TODO: IMPLEMENT TIME
 
 string response =  "HTTP/" + this->HTTP_version + " " + this->status_code + " " + this->status_text + "\n" + "Content-Type: " + this->content_type + "\n" +  "Content-Length: " +this->content_length 
-+ "\n\n" + this->body + "\n";
++  "\n\n" + this->body + "\n";
 cout << response;
 
 
