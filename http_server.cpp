@@ -78,17 +78,19 @@ HTTP_Response *handle_request(string req) {
       accordingly)
       */
 
-     url = url + "index.html";
+     url = url + "/index.html";
     }
 
     //TODO: Check with ashwin about parsing empty directory without html files
 
-    sprintf(filesize, "%jd", sb.st_size);
-    response->content_length = filesize;
-
+    
     if((stat (url.c_str(), &sbfile) == 0)){
 
       status = 1;
+      sprintf(filesize, "%jd", sbfile.st_size);
+      response->content_length = filesize;
+      cout << "Content Length :" << response->content_length << endl;
+
       /*TODO : open the file and read its contents
       */    
       inFile.open(url); //open the input file
@@ -99,32 +101,38 @@ HTTP_Response *handle_request(string req) {
       /*
       TODO : set the remaining fields of response appropriately
       */
+     
       response->body = strStream.str(); //str holds the content of the file
       
       std::cout<< "Response for File Found:" <<endl;
       std::cout << response->body << "\n"; //you can do anything with the string!!!
-
-    }
-    
+    } 
   }
-  
-
   if(!status){
     
+    //struct stat sb_404;
     response->status_code = "404";
     response->status_text = "Not Found";
     response->content_type = "text/html";
 
     
-    string url_404 = string("404.html");
-    inFile.open(url_404);
+    string url_404 = string("/file_404.html");
 
-    std::stringstream strStream;
-    strStream << inFile.rdbuf();
-    
-    response->body = strStream.str();
-    std::cout<< "Response for URL not found" <<endl;
-    std::cout << response->body << "\n"; 
+    if((stat (url_404.c_str(), &sbfile) == 0)){
+
+      sprintf(filesize, "%jd", sbfile.st_size);
+      response->content_length = filesize;
+      cout << "Content Length :" << response->content_length << endl;
+  
+      inFile.open(url_404);
+
+      std::stringstream strStream;
+      strStream << inFile.rdbuf();
+      
+      response->body = strStream.str();
+      std::cout<< "Response for URL not found" <<endl;
+      std::cout << response->body << "\n"; 
+    }  
 
   }
 

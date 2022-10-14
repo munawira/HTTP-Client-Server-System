@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
   
   int newsockfd;
   socklen_t clilen;
-  char buffer[256];
+  //char buffer[256];//REMOVE
   struct sockaddr_in serv_addr, cli_addr;
   pthread_t thread_id[MAX_WORKER_THREADS];
   int thread_count =0;
