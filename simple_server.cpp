@@ -10,35 +10,19 @@
 #include <pthread.h>
 #include "http_server.hh"
 
-#define TOTAL_THREADS 100
+#define MAX_WORKER_THREADS 10
+#define MAX_CONNECTIONS 10
+
+int num_connections =0;
 
 //NEED TO CHECK BELOW
-int get_sockfd = 1;
-pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t c = PTHREAD_COND_INITIALIZER;
+int no_sockfd = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
+pthread_cond_t full = PTHREAD_COND_INITIALIZER;
 
-void thr_exit() {
-  pthread_mutex_lock(&m);
-  get_sockfd = 1;
-  pthread_mutex_unlock(&m);
-}
 
-void *child(void *arg) {
- printf("child\n");
- thr_exit();
- return NULL;
-}
 
-void wait_newsocket() {
- pthread_mutex_lock(&m);
-
- while (get_sockfd == 0)
-  pthread_cond_wait(&c, &m);
-
- pthread_mutex_unlock(&m);
-
-}
-//////NEED TO CHECK ABOVE
 //Shared queue of Socket File Descriptor
 queue<int> threadsockfd;
 
@@ -48,47 +32,59 @@ void error(char *msg) {
 }
 
 //Function called for execution by worker threads
-void *worker_function(void *arg) {
+void *worker_function(void *) {
   
-  /*
-  int my_sockfd = *((int *) arg);
-  */
   int my_sockfd,status; //Collect my_sockfd from the queue
-  string response_buffer;
-  char send_buffer[8000];
-  // = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
-  HTTP_Response *response;
 
-  // ...thread processing...
-  char  receive_buffer[30000];
+  while(1){
+    pthread_mutex_lock(&mutex);
+    while (num_connections == 0)
+      pthread_cond_wait(&empty, &mutex);
 
-  printf("In thread: %d \n",my_sockfd );
+    my_sockfd = threadsockfd.front();
+    threadsockfd.pop();
+    num_connections--;
+    pthread_cond_signal(&full);
+    pthread_mutex_unlock(&mutex);
 
-  bzero(receive_buffer, 30000);
-  status = read(my_sockfd, receive_buffer, 30000); 
+    string response_buffer;
+    char send_buffer[8000];
+    // = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
+    HTTP_Response *response;
 
-  if (status < 0)
-    error("ERROR reading from socket\n");
-  //printf("Here is the message: %s", receive_buffer);
+    // ...thread processing...
+    char  receive_buffer[8000];
 
-  
-  //Process Received Buffer
+    printf("In thread: %d \n",my_sockfd );
 
-  response = handle_request(receive_buffer);
-  response_buffer = response->get_string();
+    bzero(receive_buffer, 8000);
+    status = read(my_sockfd, receive_buffer, 30000); 
 
-  //strcat(send_buffer, "Hello World ");
-  cout<<"SendBuffer C String:  " <<endl << response_buffer.c_str();
-  strcat(send_buffer,response_buffer.c_str());
+    if (status < 0)
+      error("ERROR reading from socket\n");
+    //printf("Here is the message: %s", receive_buffer);
 
-  /* send reply to client */
-  status = write(my_sockfd, send_buffer, 8000);
-  if (status < 0)
-    error("ERROR writing to socket\n");
+    
+    //Process Received Buffer and create the send buffer
 
-  close(my_sockfd); 
-  cout << "Closed Socket" << endl;
-  //pthread_exit(NULL);
+    response = handle_request(receive_buffer);
+
+    // Collect response buffer to send to client
+    response_buffer = response->get_string();
+
+    //strcat(send_buffer, "Hello World ");
+    //cout<<"SendBuffer C String:  " <<endl << response_buffer.c_str();
+    bzero(send_buffer, 8000);
+    strcat(send_buffer,response_buffer.c_str());
+
+    /* send reply to client */
+    status = write(my_sockfd, send_buffer, 8000);
+    if (status < 0)
+      error("ERROR writing to socket\n");
+
+    close(my_sockfd); 
+    cout << "Closed Socket" << endl;
+  }
 
 return 0;
 
@@ -100,8 +96,8 @@ int main(int argc, char *argv[]) {
   int newsockfd;
   socklen_t clilen;
   char buffer[256];
-  struct sockaddr_in serv_addr, cli_addr[TOTAL_THREADS];
-  pthread_t thread_id[TOTAL_THREADS];
+  struct sockaddr_in serv_addr, cli_addr;
+  pthread_t thread_id[MAX_WORKER_THREADS];
   int thread_count =0;
   int n;
 
@@ -111,7 +107,16 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  /* create socket */
+  //CREATE WORKER THREADS
+  for (size_t i = 0; i < MAX_WORKER_THREADS; i++){
+    /* code */
+    pthread_create(&thread_id[thread_count], NULL, worker_function, NULL);
+    thread_count++;
+
+  }
+  
+
+  /* create server socket */
 
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0)
@@ -145,19 +150,22 @@ int main(int argc, char *argv[]) {
     /* accept a new request, create a newsockfd */
     printf("Current Thread Count is : %d\n", thread_count);
 
-    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr[thread_count], &clilen);
+    pthread_mutex_lock(&mutex);
+    while(threadsockfd.size() >= MAX_CONNECTIONS)
+        pthread_cond_wait(&full, &mutex);
+    pthread_mutex_unlock(&mutex);    
+
+    newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
     if (newsockfd < 0)
       printf("ERROR on accept\n");
 
+  //Add Sock Fd to queue and signal workers
+    pthread_mutex_lock(&mutex);
     threadsockfd.push(newsockfd);
+    num_connections++;
+    pthread_cond_signal(&empty);
+    pthread_mutex_unlock(&mutex);
     printf("new socket created \n"); 
-
-    // Spawn a new thread for each connection
-
-    pthread_create(&thread_id[thread_count], NULL, worker_function, &newsockfd);
-    
-    printf("New Thread Created\n");
-    thread_count++;
 
   }
 
