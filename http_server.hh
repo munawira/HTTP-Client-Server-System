@@ -1,3 +1,14 @@
+////////////////////////////////////////////////////////////////////////////////////
+// Author: Munawira Kotyad, 22DO372, munawira@cse.iitb.ac.in
+//
+// Program: HTTP Server Thread Pool for PA3
+// Course: Design and Engineering of Computing Systems at IIT Bombay, August 2022
+// 
+// The following code implements: 
+// 1. HTTP Server with a worker thread pool
+//
+////////////////////////////////////////////////////////////////////////////////////
+
 #ifndef _HTTP_SERVER_HH_
 #define _HTTP_SERVER_HH_
 

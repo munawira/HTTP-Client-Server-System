@@ -1,3 +1,14 @@
+////////////////////////////////////////////////////////////////////////////////////
+// Author: Munawira Kotyad, 22DO372, munawira@cse.iitb.ac.in
+//
+// Program: HTTP Server Thread Pool for PA3
+// Course: Design and Engineering of Computing Systems at IIT Bombay, August 2022
+// 
+// The following code implements: 
+// 1. HTTP Server with a worker thread pool
+//
+////////////////////////////////////////////////////////////////////////////////////
+
 /* run using ./server <port> */
 
 #include <stdio.h>
@@ -10,8 +21,8 @@
 #include <pthread.h>
 #include "http_server.hh"
 
-#define MAX_WORKER_THREADS 10
-#define MAX_CONNECTIONS 10
+#define MAX_WORKER_THREADS 50
+#define MAX_CONNECTIONS 50
 
 int num_connections =0;
 
@@ -21,59 +32,51 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t full = PTHREAD_COND_INITIALIZER;
 
-
-
 //Shared queue of Socket File Descriptor
 queue<int> threadsockfd;
 
 void error(char *msg) {
   perror(msg);
-  //exit(1);//TODO: check if commenting is required
 }
 
 //Function called for execution by worker threads
 void *worker_function(void *) {
   
-  int my_sockfd,status; //Collect my_sockfd from the queue
+  int my_sockfd,status; 
 
   while(1){
+
+    //Wait on master thread's signal until queue is empty
     pthread_mutex_lock(&mutex);
+
     while (num_connections == 0)
       pthread_cond_wait(&empty, &mutex);
-
-    my_sockfd = threadsockfd.front();
+    my_sockfd = threadsockfd.front();//Collect my_sockfd from the queue
     threadsockfd.pop();
     num_connections--;
-    pthread_cond_signal(&full);
+    pthread_cond_signal(&full);//Signal to the master in case the master is waiting on a full queue. 
+    
     pthread_mutex_unlock(&mutex);
 
+    //Data structures for sending response
     string response_buffer;
     char send_buffer[8000];
-    // = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\n";
     HTTP_Response *response;
 
     // ...thread processing...
     char  receive_buffer[8000];
-
-    printf("In thread: %d \n",my_sockfd );
-
     bzero(receive_buffer, 8000);
-    status = read(my_sockfd, receive_buffer, 30000); 
 
+    //Read for Client
+    status = read(my_sockfd, receive_buffer, 30000); 
     if (status < 0)
       error("ERROR reading from socket\n");
-    //printf("Here is the message: %s", receive_buffer);
 
-    
-    //Process Received Buffer and create the send buffer
-
+    //Process Received Buffer and create the response
     response = handle_request(receive_buffer);
 
     // Collect response buffer to send to client
     response_buffer = response->get_string();
-
-    //strcat(send_buffer, "Hello World ");
-    //cout<<"SendBuffer C String:  " <<endl << response_buffer.c_str();
     bzero(send_buffer, 8000);
     strcat(send_buffer,response_buffer.c_str());
 
@@ -83,11 +86,8 @@ void *worker_function(void *) {
       error("ERROR writing to socket\n");
 
     close(my_sockfd); 
-    cout << "Closed Socket" << endl;
   }
-
 return 0;
-
 }
 
 int main(int argc, char *argv[]) {
@@ -95,7 +95,6 @@ int main(int argc, char *argv[]) {
   
   int newsockfd;
   socklen_t clilen;
-  //char buffer[256];//REMOVE
   struct sockaddr_in serv_addr, cli_addr;
   pthread_t thread_id[MAX_WORKER_THREADS];
   int thread_count =0;
@@ -115,7 +114,6 @@ int main(int argc, char *argv[]) {
 
   }
   
-
   /* create server socket */
 
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -143,13 +141,11 @@ int main(int argc, char *argv[]) {
 
   while(1){
 
-    // When you create a worker thread to handle a client request at your server, 
-    // you must pass the accepted client file descriptor as an argument to the thread function, so that it can read and write from the assigned client. 
-    // Understand how arguments are passed to threads, and be careful with pointers and casting.
+    //Assign new connection requests to worker threads
 
     /* accept a new request, create a newsockfd */
-    printf("Current Thread Count is : %d\n", thread_count);
 
+  //Wait if the queue is at maximum connections
     pthread_mutex_lock(&mutex);
     while(threadsockfd.size() >= MAX_CONNECTIONS)
         pthread_cond_wait(&full, &mutex);
@@ -159,16 +155,14 @@ int main(int argc, char *argv[]) {
     if (newsockfd < 0)
       printf("ERROR on accept\n");
 
-  //Add Sock Fd to queue and signal workers
+  //Add Sock Fd to queue and signal workers waiting on empty queue
     pthread_mutex_lock(&mutex);
     threadsockfd.push(newsockfd);
     num_connections++;
     pthread_cond_signal(&empty);
     pthread_mutex_unlock(&mutex);
-    printf("new socket created \n"); 
+
 
   }
-
-
   return 0;
 }
