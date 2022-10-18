@@ -106,7 +106,7 @@ HTTP_Response *handle_request(string req) {
     response->content_type = "text/html";
 
     
-    string url_404 = string("/file_404.html");//TODO: Include 404 File
+    string url_404 = string("file_404.html");
 
     if((stat (url_404.c_str(), &sbfile) == 0)){
 
