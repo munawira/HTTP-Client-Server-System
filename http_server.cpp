@@ -22,7 +22,8 @@
 
 vector<string> split(const string &s, char delim) {
   vector<string> elems;
-
+  if (s.empty())
+    return elems;
   stringstream ss(s);
   string item;
 
@@ -57,7 +58,7 @@ HTTP_Request::HTTP_Request(string request) {
 
 //Take request as input and handle all the HTTP processing
 HTTP_Response *handle_request(string req) {
-\
+
   HTTP_Request *request = new HTTP_Request(req);
 
   HTTP_Response *response = new HTTP_Response();

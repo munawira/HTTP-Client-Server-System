@@ -16,6 +16,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <iostream>
+#include <fstream>
 
 #include <netdb.h>
 
@@ -28,16 +29,15 @@ using namespace std;
 int time_up;
 FILE *log_file;
 
-string generate_HTTPrequest(string URL){
+string generate_HTTPrequest(int user_id, string path){
   string request;
   string HTTP_version = "HTTP/1.0";
   string method = "GET";
-  string path; 
-  string 
-   
+  string line3 = "User-Agent: HTTPTool/1.0";
+  string userid = "user" + to_string(user_id) + "client.com";
 
-  request = method + " " + URL + " " + HTTP_version + "\n" + "From: " +  ; 
-
+  request = method + " " + path + " " + HTTP_version + "\n" + "From: " +  userid + "\n" + line3 + "\n\n"; 
+  return request;
 
 }
 
@@ -59,7 +59,7 @@ struct user_info {
 // error handling function
 void error(char *msg) {
   perror(msg);
-  exit(0);
+  //exit(0);
 }
 
 // time diff in seconds
@@ -73,11 +73,19 @@ void *user_function(void *arg) {
   struct user_info *info = (struct user_info *)arg;
 
   int sockfd, n;
-  char buffer[256];
+  char buffer[256], receive_buffer[8000];
   struct timeval start, end;
 
   struct sockaddr_in serv_addr;
   struct hostent *server;
+  string path = "/index.html"; 
+
+  fstream pathfile;
+  pathfile.open("path_file.txt");
+  if(!pathfile.is_open()){
+    error("Path File cannot be opened");
+  }
+  string request;
 
   while (1) {
     /* start timer */
@@ -108,7 +116,12 @@ void *user_function(void *arg) {
 
 
     //TODO: Create the HTTP request
-
+    if(!getline(pathfile, path)){
+      path = "/index.html";
+    }
+    request = generate_HTTPrequest(info->id, path);
+    bzero(buffer,sizeof(buffer));
+    strcat(buffer,request.c_str());
 
     /* TODO: send message to server */
     n = write(sockfd, buffer, strlen(buffer));
@@ -116,12 +129,17 @@ void *user_function(void *arg) {
       error("ERROR writing to socket");
     bzero(buffer, 256); 
 
-
+    bzero(receive_buffer, 8000);
     /* TODO: read reply from server */
-    n = read(sockfd, buffer, 255);
-    if (n < 0)
+    cout << "USER ID:" << info->id << endl;
+    n = read(sockfd, receive_buffer, 7999);
+    if (n < 0){
+      cout << "Receive Buffer : " << receive_buffer << endl;
+      cout << "Path:" << path << endl;
       error("ERROR reading from socket");
-    printf("Server response: %s\n", buffer);
+    }
+      
+    //printf("Server response: %s\n", receive_buffer);
 
 
     /* TODO: close socket */
@@ -137,6 +155,7 @@ void *user_function(void *arg) {
     /* TODO: update user metrics */
 
     /* TODO: sleep for think time */
+    sleep(info->think_time);
   }
 
   /* exit thread */
@@ -149,6 +168,7 @@ int main(int argc, char *argv[]) {
   int user_count, portno, test_duration;
   float think_time;
   char *hostname;
+  //struct hostent *
 
   if (argc != 6) {
     fprintf(stderr,
@@ -182,7 +202,7 @@ int main(int argc, char *argv[]) {
   time_up = 0;
   for (int i = 0; i < user_count; ++i) {
     /* TODO: initialize user info */
-    info[i].hostname = gethostbyname(hostname);
+    info[i].hostname = hostname;
     info[i].portno = portno;
     info[i].think_time = think_time;
     info[i].id =i;
@@ -206,7 +226,7 @@ int main(int argc, char *argv[]) {
   /* TODO: wait for all threads to finish */
   for (int i = 0; i < user_count; i++){
     /* code */
-    pthread_join(&threads[i],NULL);
+    pthread_join(threads[i],NULL);
   }
   
   /* TODO: print results */

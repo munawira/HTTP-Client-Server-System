@@ -21,16 +21,16 @@
 #include <pthread.h>
 #include "http_server.hh"
 
-#define MAX_WORKER_THREADS 50
-#define MAX_CONNECTIONS 50
+#define MAX_WORKER_THREADS 500
+#define MAX_CONNECTIONS 500
 
 int num_connections =0;
 
 //NEED TO CHECK BELOW
 int no_sockfd = 0;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
-pthread_cond_t full = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t q_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t q_empty = PTHREAD_COND_INITIALIZER;
+pthread_cond_t q_full = PTHREAD_COND_INITIALIZER;
 
 //Shared queue of Socket File Descriptor
 queue<int> threadsockfd;
@@ -47,16 +47,16 @@ void *worker_function(void *) {
   while(1){
 
     //Wait on master thread's signal until queue is empty
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&q_mutex);
 
     while (num_connections == 0)
-      pthread_cond_wait(&empty, &mutex);
+      pthread_cond_wait(&q_empty, &q_mutex);
     my_sockfd = threadsockfd.front();//Collect my_sockfd from the queue
     threadsockfd.pop();
     num_connections--;
-    pthread_cond_signal(&full);//Signal to the master in case the master is waiting on a full queue. 
+    pthread_cond_signal(&q_full);//Signal to the master in case the master is waiting on a full queue. 
     
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&q_mutex);
 
     //Data structures for sending response
     string response_buffer;
@@ -80,11 +80,14 @@ void *worker_function(void *) {
     bzero(send_buffer, 8000);
     strcat(send_buffer,response_buffer.c_str());
 
+    cout << "SEND BUFFER: " << endl << send_buffer << endl;
+
     /* send reply to client */
     status = write(my_sockfd, send_buffer, 8000);
     if (status < 0)
       error("ERROR writing to socket\n");
 
+    sleep(2);  
     close(my_sockfd); 
   }
 return 0;
@@ -146,21 +149,21 @@ int main(int argc, char *argv[]) {
     /* accept a new request, create a newsockfd */
 
   //Wait if the queue is at maximum connections
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&q_mutex);
     while(threadsockfd.size() >= MAX_CONNECTIONS)
-        pthread_cond_wait(&full, &mutex);
-    pthread_mutex_unlock(&mutex);    
+        pthread_cond_wait(&q_full, &q_mutex);
+    pthread_mutex_unlock(&q_mutex);    
 
     newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
     if (newsockfd < 0)
       printf("ERROR on accept\n");
 
   //Add Sock Fd to queue and signal workers waiting on empty queue
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&q_mutex);
     threadsockfd.push(newsockfd);
     num_connections++;
-    pthread_cond_signal(&empty);
-    pthread_mutex_unlock(&mutex);
+    pthread_cond_signal(&q_empty);
+    pthread_mutex_unlock(&q_mutex);
 
 
   }
