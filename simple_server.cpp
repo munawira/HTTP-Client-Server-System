@@ -80,7 +80,7 @@ void *worker_function(void *) {
     bzero(send_buffer, 8000);
     strcat(send_buffer,response_buffer.c_str());
 
-    cout << "SEND BUFFER: " << endl << send_buffer << endl;
+    //cout << "SEND BUFFER: " << endl << send_buffer << endl;
 
     /* send reply to client */
     status = write(my_sockfd, send_buffer, 8000);
@@ -155,8 +155,11 @@ int main(int argc, char *argv[]) {
     pthread_mutex_unlock(&q_mutex);    
 
     newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
-    if (newsockfd < 0)
+    if (newsockfd < 0){
       printf("ERROR on accept\n");
+      continue;
+    }
+      
 
   //Add Sock Fd to queue and signal workers waiting on empty queue
     pthread_mutex_lock(&q_mutex);

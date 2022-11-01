@@ -36,7 +36,7 @@ string generate_HTTPrequest(int user_id, string path){
   string line3 = "User-Agent: HTTPTool/1.0";
   string userid = "user" + to_string(user_id) + "client.com";
 
-  request = method + " " + path + " " + HTTP_version + "\n" + "From: " +  userid + "\n" + line3 + "\n\n"; 
+  request = method + " " + "/index.html" + " " + HTTP_version + "\n" + "From: " +  userid + "\n" + line3 + "\n\n"; 
   return request;
 
 }
@@ -80,11 +80,11 @@ void *user_function(void *arg) {
   struct hostent *server;
   string path = "/index.html"; 
 
-  fstream pathfile;
-  pathfile.open("path_file.txt");
-  if(!pathfile.is_open()){
-    error("Path File cannot be opened");
-  }
+  // fstream pathfile;
+  // pathfile.open("path_file.txt");
+  // if(!pathfile.is_open()){
+  //   error("Path File cannot be opened");
+  // }
   string request;
 
   while (1) {
@@ -116,9 +116,9 @@ void *user_function(void *arg) {
 
 
     //TODO: Create the HTTP request
-    if(!getline(pathfile, path)){
-      path = "/index.html";
-    }
+    // if(!getline(pathfile, path)){
+    //   path = "/index.html";
+    // }
     request = generate_HTTPrequest(info->id, path);
     bzero(buffer,sizeof(buffer));
     strcat(buffer,request.c_str());
@@ -153,6 +153,8 @@ void *user_function(void *arg) {
       break;
 
     /* TODO: update user metrics */
+    info->total_count++;
+    info->total_rtt = time_diff(&end, &start);
 
     /* TODO: sleep for think time */
     sleep(info->think_time);
@@ -168,7 +170,8 @@ int main(int argc, char *argv[]) {
   int user_count, portno, test_duration;
   float think_time;
   char *hostname;
-  //struct hostent *
+  int total_requests =0;
+  float total_time=0;
 
   if (argc != 6) {
     fprintf(stderr,
@@ -206,6 +209,8 @@ int main(int argc, char *argv[]) {
     info[i].portno = portno;
     info[i].think_time = think_time;
     info[i].id =i;
+    info[i].total_count =0;
+    info[i].total_rtt = 0;
 
     /* TODO: create user thread */
     pthread_create(&threads[i], NULL, user_function, &info[i]);
@@ -231,7 +236,15 @@ int main(int argc, char *argv[]) {
   
   /* TODO: print results */
 
+  for (int i = 0; i < user_count; i++){
+    /* code */
+    total_requests += info[i].total_count;
+    total_time += info[i].total_rtt;
+  }
 
+  fprintf(log_file, "Experiment Done\n");
+  fprintf(log_file, "Total Requests : %d\n", total_requests);
+  fprintf(log_file, "Total Time : %d\n", total_time);
   /* close log file */
   fclose(log_file);
 

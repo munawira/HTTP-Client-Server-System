@@ -37,12 +37,12 @@ vector<string> split(const string &s, char delim) {
 
 HTTP_Request::HTTP_Request(string request) {
 
+  cout << request << endl;
   //Separate the request into lines
   vector<string> lines = split(request, '\n');
   vector<string> first_line = split(lines[0], ' ');
-
+  cout << "Split Success \n";
   this->HTTP_version = "1.0"; // We'll be using 1.0 irrespective of the request
-    
     
   //Extract the request method and URL from first_line here
   
