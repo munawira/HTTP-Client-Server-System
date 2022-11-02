@@ -5,7 +5,7 @@
 // Course: Design and Engineering of Computing Systems at IIT Bombay, August 2022
 // 
 // The following code implements: 
-// 1. HTTP Server with a worker thread pool
+// 1. HTTP Load generator with a client thread pool
 //
 //
 /* run using: ./load_gen localhost <server port> <number of concurrent users>
@@ -80,11 +80,6 @@ void *user_function(void *arg) {
   struct hostent *server;
   string path = "/index.html"; 
 
-  // fstream pathfile;
-  // pathfile.open("path_file.txt");
-  // if(!pathfile.is_open()){
-  //   error("Path File cannot be opened");
-  // }
   string request;
 
   while (1) {
@@ -115,10 +110,6 @@ void *user_function(void *arg) {
       error("ERROR connecting");
 
 
-    //TODO: Create the HTTP request
-    // if(!getline(pathfile, path)){
-    //   path = "/index.html";
-    // }
     request = generate_HTTPrequest(info->id, path);
     bzero(buffer,sizeof(buffer));
     strcat(buffer,request.c_str());
@@ -131,16 +122,12 @@ void *user_function(void *arg) {
 
     bzero(receive_buffer, 8000);
     /* TODO: read reply from server */
-    cout << "USER ID:" << info->id << endl;
     n = read(sockfd, receive_buffer, 7999);
     if (n < 0){
       cout << "Receive Buffer : " << receive_buffer << endl;
       cout << "Path:" << path << endl;
       error("ERROR reading from socket");
     }
-      
-    //printf("Server response: %s\n", receive_buffer);
-
 
     /* TODO: close socket */
     close(sockfd);
@@ -154,7 +141,7 @@ void *user_function(void *arg) {
 
     /* TODO: update user metrics */
     info->total_count++;
-    info->total_rtt = time_diff(&end, &start);
+    info->total_rtt += time_diff(&end, &start);
 
     /* TODO: sleep for think time */
     sleep(info->think_time);
@@ -241,10 +228,11 @@ int main(int argc, char *argv[]) {
     total_requests += info[i].total_count;
     total_time += info[i].total_rtt;
   }
-
+  //total_time = time_diff(&end, &start);
   fprintf(log_file, "Experiment Done\n");
+  fprintf(log_file,"User Count: %d\n", user_count);
   fprintf(log_file, "Total Requests : %d\n", total_requests);
-  fprintf(log_file, "Total Time : %d\n", total_time);
+  fprintf(log_file, "Total Time : %f\n", total_time);
   /* close log file */
   fclose(log_file);
 

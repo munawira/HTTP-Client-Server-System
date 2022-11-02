@@ -21,8 +21,8 @@
 #include <pthread.h>
 #include "http_server.hh"
 
-#define MAX_WORKER_THREADS 500
-#define MAX_CONNECTIONS 500
+#define MAX_WORKER_THREADS 100
+#define MAX_CONNECTIONS 50
 
 int num_connections =0;
 
@@ -160,7 +160,6 @@ int main(int argc, char *argv[]) {
       continue;
     }
       
-
   //Add Sock Fd to queue and signal workers waiting on empty queue
     pthread_mutex_lock(&q_mutex);
     threadsockfd.push(newsockfd);
